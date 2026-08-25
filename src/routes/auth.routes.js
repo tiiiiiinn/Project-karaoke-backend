@@ -1,0 +1,67 @@
+const router = require('express').Router();
+const pool = require('../db');
+
+// POST /api/auth/register  { name, phone }  -- สมัครสมาชิกลูกค้า
+router.post('/register', async (req, res) => {
+  const { name, phone } = req.body;
+  if (!name || !phone || phone.trim().length < 9) {
+    return res.status(400).json({ error: 'กรุณากรอกชื่อและเบอร์โทรศัพท์ให้ครบถ้วน' });
+  }
+  try {
+    const existing = await pool.query('SELECT user_id FROM users WHERE phone = $1', [phone]);
+    if (existing.rows.length) {
+      return res.status(409).json({ error: 'เบอร์นี้สมัครสมาชิกไปแล้ว' });
+    }
+    const result = await pool.query(
+      `INSERT INTO users (name, phone, role) VALUES ($1, $2, 'customer')
+       RETURNING user_id, name, phone`,
+      [name.trim(), phone.trim()]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/login  { phone }  -- ลูกค้าเข้าสู่ระบบด้วยเบอร์โทร
+router.post('/login', async (req, res) => {
+  const { phone } = req.body;
+  if (!phone || phone.trim().length < 9) {
+    return res.status(400).json({ error: 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง' });
+  }
+  try {
+    const result = await pool.query(
+      `SELECT user_id, name, phone FROM users WHERE phone = $1 AND role = 'customer'`,
+      [phone.trim()]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'ไม่พบบัญชีนี้ กรุณาสมัครสมาชิกก่อน' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/admin-login  { username, password }  -- แอดมินเข้าสู่ระบบ
+router.post('/admin-login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'กรุณากรอก username และ password' });
+  }
+  try {
+    const result = await pool.query(
+      `SELECT user_id, name, username FROM users
+       WHERE username = $1 AND role = 'admin' AND password_hash = crypt($2, password_hash)`,
+      [username, password]
+    );
+    if (!result.rows.length) {
+      return res.status(401).json({ error: 'username หรือ password ไม่ถูกต้อง' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
