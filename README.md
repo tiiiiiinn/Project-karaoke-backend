@@ -2,6 +2,8 @@
 
 Backend สำหรับระบบจองห้องคาราโอเกะ Gens Karaoke & Board Game ต่อกับ PostgreSQL (schema 7 ตาราง: users, shop, shop_hours, room, shop_policy, booking, payment)
 
+test
+
 ## ติดตั้ง
 
 ```bash
